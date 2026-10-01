@@ -124,12 +124,15 @@ const routes = {
 
   'POST /completions': ({ body }) => {
     need(DAY_RE.test(body.day ?? ''), 'day must be YYYY-MM-DD');
-    need(db.habits.some(h => h.id === body.habit_id), 'unknown habit');
+    const habit = db.habits.find(h => h.id === body.habit_id);
+    need(habit, 'unknown habit');
     const row = {
       habit_id: body.habit_id, day: body.day,
       seconds: Math.max(0, Math.round(Number(body.seconds) || 0)),
       hour: Number.isInteger(body.hour) && body.hour >= 0 && body.hour < 24 ? body.hour : null,
     };
+    // Timed habits only count once the full timer has run.
+    need(!habit.minutes || row.seconds >= habit.minutes * 60, 'Finish the timer to check this off');
     db.completions = db.completions.filter(c => !(c.habit_id === row.habit_id && c.day === row.day));
     db.completions.push(row);
     save();

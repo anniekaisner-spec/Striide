@@ -293,6 +293,7 @@ const screens = {
         on('[data-toggle]', 'click', async e => {
           const h = S.habits.find(x => x.id == e.currentTarget.dataset.toggle);
           if (isDone(h)) await api('/completions', 'DELETE', { habit_id: h.id, day: today() });
+          else if (h.minutes) return startHabit(h);
           else await api('/completions', 'POST', { habit_id: h.id, day: today(), seconds: 0, hour: new Date().getHours() });
           await refresh();
           render();
@@ -346,14 +347,14 @@ const screens = {
           <div class="bar mt" style="width:100%"><i id="bar" style="width:${(elapsed() / goal) * 100}%"></i></div>
           <p class="tiny mt-s" id="hint"></p>
         </div>
-        <div class="btn-pair"><button class="btn btn-outline" id="toggle"></button><button class="btn btn-soft" id="finish">Mark complete</button></div>`,
+        <button class="btn btn-outline" id="toggle"></button>`,
       mount: () => {
         const sync = () => {
           const e = elapsed();
           $('#clock').textContent = fmt(goal - e);
           $('#bar').style.width = (e / goal) * 100 + '%';
           $('#toggle').textContent = t.startedAt ? 'Pause' : e ? 'Resume' : 'Start';
-          $('#hint').textContent = t.startedAt ? 'Stay with it.' : `Tap ${e ? 'Resume' : 'Start'} to ${e ? 'continue' : 'start'} your session`;
+          $('#hint').textContent = t.startedAt ? 'It checks off when the timer runs out.' : `Tap ${e ? 'Resume' : 'Start'} to ${e ? 'continue' : 'start'} your session`;
           if (e >= goal) finish();
         };
         const finish = async () => {
@@ -366,7 +367,6 @@ const screens = {
           store.set(key, t);
           sync();
         });
-        on('#finish', 'click', finish);
         timers.push(setInterval(sync, 500));
         sync();
       },
@@ -533,4 +533,8 @@ setInterval(checkReminders, 30_000);
 
 await refresh();
 render();
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+if ('serviceWorker' in navigator) {
+  const hadController = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadController) location.reload(); });
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
